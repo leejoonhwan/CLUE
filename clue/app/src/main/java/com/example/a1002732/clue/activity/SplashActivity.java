@@ -1,4 +1,4 @@
-package com.example.a1002732.clue;
+package com.example.a1002732.clue.activity;
 
 import android.app.Activity;
 import android.content.Intent;
