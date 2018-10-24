@@ -1,16 +1,15 @@
 package com.example.a1002732.clue.service;
 
-import android.app.IntentService;
+import
+        android.app.IntentService;
 import android.content.Intent;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.os.AsyncTask;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
-import android.util.Log;
-import android.widget.Toast;
+
 
 public class SensorService extends IntentService implements SensorEventListener {
 
@@ -36,10 +35,11 @@ public class SensorService extends IntentService implements SensorEventListener 
             lastUpdate = curTime;
 
             //Check for axial acceleration changes and invoke LocationChangeService
-            if(Math.abs(x-last_x) > 8 || Math.abs(y-last_y) > 8 || Math.abs(z-last_z) > 8){
-                Intent locationIntent = new Intent(getApplicationContext(), LocationChangeService.class);
-                locationIntent.setAction("start_location_tracing");
-                startService(locationIntent);
+            if(Math.abs(x-last_x) > 8 && Math.abs(y-last_y) > 8 && Math.abs(z-last_z) > 8){
+
+                Intent collisionDetectedIntent = new Intent("COLLISION_DETECTED_INTERNAL");
+                collisionDetectedIntent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+                sendBroadcast(collisionDetectedIntent);
             }
 
             last_x = x;
