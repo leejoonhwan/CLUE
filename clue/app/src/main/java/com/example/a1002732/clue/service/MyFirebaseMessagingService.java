@@ -1,21 +1,14 @@
 package com.example.a1002732.clue.service;
 
 import com.example.a1002732.clue.R;
-import com.example.a1002732.clue.activity.MainActivity;
+import com.example.a1002732.clue.util.NotiUtil;
 import com.google.firebase.messaging.FirebaseMessagingService;
 
 /**
  * Created by Joo on 2017. 12. 19.
  */
 
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
-import android.graphics.BitmapFactory;
-import android.media.RingtoneManager;
-import android.net.Uri;
-import android.support.v4.app.NotificationCompat;
+import android.app.Notification;
 import android.util.Log;
 import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
@@ -32,29 +25,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         String title = data.get("title");
         String messagae = data.get("content");
 
-        Log.d("이준환", "onMessageReceived: "+title+messagae);
-        sendNotification(title, messagae);
+        NotiUtil notiUtil = new NotiUtil(getApplicationContext());
+        notiUtil.presentHeadsUpNotification(Notification.VISIBILITY_PUBLIC, R.drawable.iotc_icon, title, messagae);
     }
 
-    private void sendNotification(String title, String message) {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0 /* Request code */, intent,
-                PendingIntent.FLAG_CANCEL_CURRENT);
 
-        Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this)
-                .setLargeIcon(BitmapFactory.decodeResource(getResources(), android.R.drawable.ic_dialog_info))
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(title)
-                .setContentText(message)
-                .setAutoCancel(true)
-                .setSound(defaultSoundUri)
-                .setContentIntent(pendingIntent);
-
-        NotificationManager notificationManager =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-        notificationManager.notify(0 /* ID of notification */, notificationBuilder.build());
-    }
 }

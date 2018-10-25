@@ -2,6 +2,10 @@ package com.example.a1002732.clue.activity;
 
 import android.Manifest;
 import android.annotation.TargetApi;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -10,14 +14,19 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Build;
+import android.support.v4.app.NotificationCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.example.a1002732.clue.R;
+import com.example.a1002732.clue.service.MediaService;
 import com.example.a1002732.clue.service.SensorService;
+import com.example.a1002732.clue.util.NotiUtil;
 import com.google.firebase.iid.FirebaseInstanceId;
 
 import java.io.IOException;
@@ -31,11 +40,12 @@ import java.util.Enumeration;
 
 public class MainActivity extends AppCompatActivity implements LocationListener{
     private final static String TAG = MainActivity.class.getSimpleName();
+    private final int MY_PERMISSION_REQUEST_STORAGE = 100;
     private final int MY_PERMISSION_REQUEST_LOCATION = 100;
     private final int MY_PERMISSION_REQUEST_COARSE_LOCATION = 101;
 
     private Intent sensorIntent;
-    private Intent locationIntent;
+    private Intent mediaIntent;
 
     protected LocationManager locationManager;
 
@@ -49,6 +59,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener{
     TextView textViewState, textViewPrompt;
 
     CollisionBroadcastReceiver collisionBroadcastReceiver = new CollisionBroadcastReceiver();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -93,48 +104,72 @@ public class MainActivity extends AppCompatActivity implements LocationListener{
         registerReceiver(collisionBroadcastReceiver, new IntentFilter("COLLISION_DETECTED_INTERNAL"));
 
 
+
+        // UDP 미디어 전송 서비스 시작
+        mediaIntent = new Intent(MainActivity.this, MediaService.class);
+        mediaIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startService(mediaIntent);
+
+
+
+
+        textViewState.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //** 123456은 고유 ID값이므로 아무거나 들어가도 상관 없음
+                NotiUtil notiUtil = new NotiUtil(getApplicationContext());
+                notiUtil.presentHeadsUpNotification(Notification.VISIBILITY_PUBLIC, R.drawable.iotc_icon, "tttt", "ttttttt");
+            }
+        });
         // Create the LocationAssistant object
         // locationAssistant = new LocationAssistant(this, this, LocationAssistant.Accuracy.HIGH, 500, false);
         // locationAssistant.start();
     }
 
-
-
-
     @TargetApi(Build.VERSION_CODES.M)
     private boolean checkPermission() {
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
-                Toast.makeText(this, "Location Service", Toast.LENGTH_SHORT).show();
+        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED
+                ) {
+            if (shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                Toast.makeText(this, "Read/Write external storage", Toast.LENGTH_SHORT).show();
             }
 
-            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
-                    MY_PERMISSION_REQUEST_LOCATION);
+            requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    MY_PERMISSION_REQUEST_STORAGE);
+
+        } else {
 
         }
-
-        if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)) {
-                Toast.makeText(this, "Location Service", Toast.LENGTH_SHORT).show();
-            }
-
-            requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
-                    MY_PERMISSION_REQUEST_COARSE_LOCATION);
-
-        }
-
         return true;
+    }
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        for(int permission : grantResults) {
+            if (permission != PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(getApplicationContext(), "필수 권한이 없어 앱이 종료됩니다.", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "Permission always deny");
+                finish();
+            }
+        }
+        startActivity(new Intent(this, MainActivity.class));
+        finish();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        stopService(new Intent(MainActivity.this, SensorService.class));
+        stopService(new Intent(MainActivity.this, MediaService.class));
     }
 
     @Override
     public void onBackPressed() {
         super.onBackPressed();
         stopService(new Intent(MainActivity.this, SensorService.class));
+        stopService(new Intent(MainActivity.this, MediaService.class));
         System.exit(0);
     }
 
@@ -192,109 +227,5 @@ public class MainActivity extends AppCompatActivity implements LocationListener{
                 textViewPrompt.append(prompt);
             }
         });
-    }
-
-
-
-
-
-
-
-
-
-
-    private class UdpServerThread extends Thread{
-
-        int serverPort;
-        DatagramSocket socket;
-
-        boolean running;
-
-        public UdpServerThread(int serverPort) {
-            super();
-            this.serverPort = serverPort;
-        }
-
-        public void setRunning(boolean running){
-            this.running = running;
-        }
-
-        @Override
-        public void run() {
-
-            running = true;
-
-            try {
-                updateState("Starting UDP Server");
-                socket = new DatagramSocket(serverPort);
-
-                updateState("UDP Server is running");
-                Log.e(TAG, "UDP Server is running");
-
-                while(running){
-                    byte[] buf = new byte[256];
-
-                    // receive request
-                    DatagramPacket packet = new DatagramPacket(buf, buf.length);
-                    socket.receive(packet);     //this code block the program flow
-
-                    // send the response to the client at "address" and "port"
-                    InetAddress address = packet.getAddress();
-                    int port = packet.getPort();
-
-                    updatePrompt("Request from: " + address + ":" + port + "\n");
-
-                    String dString = new Date().toString() + "\n"
-                            + "Your address " + address.toString() + ":" + String.valueOf(port);
-                    buf = dString.getBytes();
-                    packet = new DatagramPacket(buf, buf.length, address, port);
-                    socket.send(packet);
-
-                }
-
-                Log.e(TAG, "UDP Server ended");
-
-            } catch (SocketException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                if(socket != null){
-                    socket.close();
-                    Log.e(TAG, "socket.close()");
-                }
-            }
-        }
-    }
-
-    private String getIpAddress() {
-        String ip = "";
-        try {
-            Enumeration<NetworkInterface> enumNetworkInterfaces = NetworkInterface
-                    .getNetworkInterfaces();
-            while (enumNetworkInterfaces.hasMoreElements()) {
-                NetworkInterface networkInterface = enumNetworkInterfaces
-                        .nextElement();
-                Enumeration<InetAddress> enumInetAddress = networkInterface
-                        .getInetAddresses();
-                while (enumInetAddress.hasMoreElements()) {
-                    InetAddress inetAddress = enumInetAddress.nextElement();
-
-                    if (inetAddress.isSiteLocalAddress()) {
-                        ip += "SiteLocalAddress: "
-                                + inetAddress.getHostAddress() + "\n";
-                    }
-
-                }
-
-            }
-
-        } catch (SocketException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-            ip += "Something Wrong! " + e.toString() + "\n";
-        }
-
-        return ip;
     }
 }
