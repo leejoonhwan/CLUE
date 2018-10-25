@@ -4,32 +4,21 @@ import android.Manifest;
 import android.annotation.TargetApi;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
-import android.os.Handler;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import com.example.a1002732.clue.R;
-import com.example.a1002732.clue.helper.LocationAssistant;
-import com.example.a1002732.clue.service.LocationService;
 import com.example.a1002732.clue.service.SensorService;
-import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.firebase.iid.FirebaseInstanceId;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -47,8 +36,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener{
 
     private Intent sensorIntent;
     private Intent locationIntent;
-
-    private LocationAssistant locationAssistant;
 
     protected LocationManager locationManager;
 
@@ -70,6 +57,14 @@ public class MainActivity extends AppCompatActivity implements LocationListener{
         infoPort = (TextView) findViewById(R.id.infoport);
         textViewState = (TextView)findViewById(R.id.state);
         textViewPrompt = (TextView)findViewById(R.id.prompt);
+
+        FirebaseInstanceId.getInstance().getToken();
+
+
+        if (FirebaseInstanceId.getInstance().getToken() != null) {
+            Log.d("이준환", "token = " + FirebaseInstanceId.getInstance().getToken());
+        }
+
 
 
 
@@ -134,7 +129,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener{
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        locationAssistant.stop();
     }
 
     @Override
